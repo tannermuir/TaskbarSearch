@@ -235,8 +235,9 @@ bool ElementHasActiveSearchVisualState(FrameworkElement element) {
     }
 
     try {
-        for (const auto& group :
-             VisualStateManager::GetVisualStateGroups(element)) {
+        auto groups = VisualStateManager::GetVisualStateGroups(element);
+        for (uint32_t i = 0; i < groups.Size(); i++) {
+            auto group = groups.GetAt(i);
             if (!group) {
                 continue;
             }
