@@ -7,7 +7,9 @@ internal static class NativeMethods
 {
     public const int WM_HOTKEY = 0x0312;
     public static readonly IntPtr WM_KEYDOWN = 0x0100;
+    public static readonly IntPtr WM_KEYUP = 0x0101;
     public static readonly IntPtr WM_SYSKEYDOWN = 0x0104;
+    public static readonly IntPtr WM_SYSKEYUP = 0x0105;
     public const int WM_CLOSE = 0x0010;
     public const int WM_SYSCOMMAND = 0x0112;
     public const int SC_CLOSE = 0xF060;

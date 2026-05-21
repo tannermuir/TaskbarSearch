@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TaskbarInstantSearch")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+12b17b98ffd0b9682027075747b059a9f253d715")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+66d79733ac751c8d62febbfd193c3666c949d554")]
 [assembly: System.Reflection.AssemblyProductAttribute("TaskbarInstantSearch")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TaskbarInstantSearch")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
