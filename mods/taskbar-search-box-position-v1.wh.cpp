@@ -37,6 +37,7 @@ buttons centered.
 #include <algorithm>
 #include <atomic>
 #include <cwchar>
+#include <cstdio>
 #include <functional>
 #include <limits>
 #include <mutex>
@@ -49,6 +50,7 @@ buttons centered.
 #include <winrt/Windows.UI.Core.h>
 #include <winrt/Windows.UI.Xaml.Automation.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
+#include <winrt/Windows.UI.Xaml.Input.h>
 #include <winrt/Windows.UI.Xaml.Media.h>
 #include <winrt/Windows.UI.Xaml.Shapes.h>
 #include <winrt/Windows.UI.Xaml.h>
@@ -64,10 +66,14 @@ struct {
 
 std::atomic<bool> g_taskbarViewDllLoaded;
 std::atomic<bool> g_unloading;
+std::atomic<ULONGLONG> g_lastSearchActivationTick;
 
 thread_local bool g_inTaskbarArrangeOverride;
 
 constexpr double kMinimumSearchLayoutSlotWidth = 1.0;
+constexpr PCWSTR kCompanionPipeName = LR"(\\.\pipe\TaskbarInstantSearch)";
+constexpr PCWSTR kCompanionRelativePath =
+    L"TaskbarInstantSearch\\TaskbarInstantSearch.exe";
 
 void* CTaskBand_ITaskListWndSite_vftable;
 void* CSecondaryTaskBand_ITaskListWndSite_vftable;
@@ -87,8 +93,22 @@ std__Ref_count_base__Decref_t std__Ref_count_base__Decref_Original;
 std::mutex g_originalMarginsMutex;
 std::unordered_map<void*, Thickness> g_originalMargins;
 
+std::mutex g_originalOpacitiesMutex;
+std::unordered_map<void*, double> g_originalOpacities;
+
 std::mutex g_searchRepeaterItemsMutex;
 std::unordered_set<void*> g_searchRepeaterItems;
+
+struct SearchActivationHandlerTokens {
+    FrameworkElement element;
+    winrt::event_token pointerPressedToken;
+    winrt::event_token pointerReleasedToken;
+    winrt::event_token tappedToken;
+};
+
+std::mutex g_searchActivationHandlerTokensMutex;
+std::unordered_map<void*, SearchActivationHandlerTokens>
+    g_searchActivationHandlerTokens;
 
 FrameworkElement EnumChildElements(
     FrameworkElement element,
@@ -196,6 +216,21 @@ bool HasAncestorNamed(FrameworkElement element, PCWSTR name) {
     return false;
 }
 
+bool HasAncestorClassName(FrameworkElement element, PCWSTR className) {
+    DependencyObject parent = Media::VisualTreeHelper::GetParent(element);
+    while (parent) {
+        auto parentElement = parent.try_as<FrameworkElement>();
+        if (parentElement &&
+            winrt::get_class_name(parentElement) == className) {
+            return true;
+        }
+
+        parent = Media::VisualTreeHelper::GetParent(parent);
+    }
+
+    return false;
+}
+
 bool HasParentNamed(FrameworkElement element, PCWSTR name) {
     auto parent = Media::VisualTreeHelper::GetParent(element)
                       .try_as<FrameworkElement>();
@@ -210,85 +245,230 @@ bool ElementOrDescendantIsTaskbarSearchButton(FrameworkElement element) {
                }));
 }
 
-bool ShouldSkipVisualStateGroups(FrameworkElement element) {
-    auto className = winrt::get_class_name(element);
-    auto parent = Media::VisualTreeHelper::GetParent(element)
-                      .try_as<FrameworkElement>();
-    if (!parent) {
+bool SendCompanionToggleMessage() {
+    HANDLE pipe = CreateFileW(kCompanionPipeName, GENERIC_READ | GENERIC_WRITE,
+                              0, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (pipe == INVALID_HANDLE_VALUE) {
         return false;
     }
 
-    auto parentClassName = winrt::get_class_name(parent);
+    const char message[] = "{\"type\":\"toggle\"}\n";
+    DWORD bytesWritten = 0;
+    BOOL writeSucceeded =
+        WriteFile(pipe, message, sizeof(message) - 1, &bytesWritten, nullptr);
 
-    // These Search elements are known to expose a malformed visual state group
-    // collection on some Windows builds. Querying the groups can dereference a
-    // null entry inside the XAML implementation.
-    return (className == L"Taskbar.TaskListButtonPanel" &&
-            parentClassName == L"Taskbar.SearchBoxLaunchListButton") ||
-           (className == L"SearchUx.SearchUI.SearchButtonRootGrid" &&
-            parentClassName == L"SearchUx.SearchUI.SearchPillButton");
+    char response[64];
+    DWORD bytesRead = 0;
+    if (writeSucceeded) {
+        ReadFile(pipe, response, sizeof(response), &bytesRead, nullptr);
+    }
+
+    CloseHandle(pipe);
+    return writeSucceeded && bytesWritten == sizeof(message) - 1;
 }
 
-bool ElementHasActiveSearchVisualState(FrameworkElement element) {
-    if (ShouldSkipVisualStateGroups(element)) {
+bool BuildCompanionExecutablePath(PWSTR path, size_t pathCount) {
+    DWORD appDataLength = GetEnvironmentVariableW(L"APPDATA", path,
+                                                  static_cast<DWORD>(pathCount));
+    if (appDataLength == 0 || appDataLength >= pathCount) {
         return false;
+    }
+
+    size_t currentLength = wcslen(path);
+    int written = swprintf_s(path + currentLength, pathCount - currentLength,
+                             L"\\%s", kCompanionRelativePath);
+    return written > 0;
+}
+
+bool LaunchCompanionAppForToggle() {
+    WCHAR path[MAX_PATH];
+    if (!BuildCompanionExecutablePath(path, ARRAYSIZE(path))) {
+        Wh_Log(L"Failed to build TaskbarInstantSearch companion path");
+        return false;
+    }
+
+    if (GetFileAttributesW(path) == INVALID_FILE_ATTRIBUTES) {
+        Wh_Log(L"TaskbarInstantSearch companion not found: %s", path);
+        return false;
+    }
+
+    WCHAR commandLine[MAX_PATH + 16];
+    if (swprintf_s(commandLine, L"\"%s\" --toggle", path) < 0) {
+        return false;
+    }
+
+    STARTUPINFOW startupInfo{sizeof(startupInfo)};
+    PROCESS_INFORMATION processInfo{};
+    BOOL created = CreateProcessW(path, commandLine, nullptr, nullptr, FALSE, 0,
+                                  nullptr, nullptr, &startupInfo, &processInfo);
+    if (!created) {
+        Wh_Log(L"Failed to launch TaskbarInstantSearch companion: %u",
+               GetLastError());
+        return false;
+    }
+
+    CloseHandle(processInfo.hThread);
+    CloseHandle(processInfo.hProcess);
+    return true;
+}
+
+void ActivateCustomSearchOverlay() {
+    if (g_unloading) {
+        return;
+    }
+
+    ULONGLONG now = GetTickCount64();
+    ULONGLONG previous = g_lastSearchActivationTick.exchange(now);
+    if (previous && now - previous < 300) {
+        return;
+    }
+
+    if (SendCompanionToggleMessage()) {
+        return;
+    }
+
+    if (!LaunchCompanionAppForToggle()) {
+        Wh_Log(L"TaskbarInstantSearch activation failed");
+    }
+}
+
+void UnregisterSearchActivationHandlers(FrameworkElement element) {
+    void* key = winrt::get_abi(element);
+
+    SearchActivationHandlerTokens handler;
+    bool found = false;
+    {
+        std::lock_guard<std::mutex> lock(g_searchActivationHandlerTokensMutex);
+        auto it = g_searchActivationHandlerTokens.find(key);
+        if (it != g_searchActivationHandlerTokens.end()) {
+            handler = it->second;
+            g_searchActivationHandlerTokens.erase(it);
+            found = true;
+        }
+    }
+
+    if (!found) {
+        return;
     }
 
     try {
-        auto groups = VisualStateManager::GetVisualStateGroups(element);
-        for (uint32_t i = 0; i < groups.Size(); i++) {
-            auto group = groups.GetAt(i);
-            if (!group) {
-                continue;
-            }
-
-            auto currentState = group.CurrentState();
-            if (currentState &&
-                HStringContains(currentState.Name(), L"Active")) {
-                return true;
-            }
-        }
+        handler.element.PointerPressed(handler.pointerPressedToken);
+        handler.element.PointerReleased(handler.pointerReleasedToken);
+        handler.element.Tapped(handler.tappedToken);
     } catch (...) {
+    }
+}
+
+void RegisterSearchActivationHandlers(FrameworkElement element) {
+    void* key = winrt::get_abi(element);
+    {
+        std::lock_guard<std::mutex> lock(g_searchActivationHandlerTokensMutex);
+        if (g_searchActivationHandlerTokens.find(key) !=
+            g_searchActivationHandlerTokens.end()) {
+            return;
+        }
+    }
+
+    winrt::event_token pointerPressedToken = element.PointerPressed(
+        [](winrt::Windows::Foundation::IInspectable const&,
+           winrt::Windows::UI::Xaml::Input::PointerRoutedEventArgs const&
+               args) {
+            ActivateCustomSearchOverlay();
+            args.Handled(true);
+        });
+
+    winrt::event_token pointerReleasedToken = element.PointerReleased(
+        [](winrt::Windows::Foundation::IInspectable const&,
+           winrt::Windows::UI::Xaml::Input::PointerRoutedEventArgs const&
+               args) {
+            if (!g_unloading) {
+                args.Handled(true);
+            }
+        });
+
+    winrt::event_token tappedToken = element.Tapped(
+        [](winrt::Windows::Foundation::IInspectable const&,
+           winrt::Windows::UI::Xaml::Input::TappedRoutedEventArgs const&
+               args) {
+            ActivateCustomSearchOverlay();
+            args.Handled(true);
+        });
+
+    std::lock_guard<std::mutex> lock(g_searchActivationHandlerTokensMutex);
+    g_searchActivationHandlerTokens.emplace(
+        key, SearchActivationHandlerTokens{element, pointerPressedToken,
+                                           pointerReleasedToken, tappedToken});
+}
+
+void ApplySearchActivationBehavior(FrameworkElement element) {
+    if (g_unloading) {
+        UnregisterSearchActivationHandlers(element);
+        element.IsHitTestVisible(true);
+        return;
+    }
+
+    // Custom Search activation lives here; layout and visual cleanup are kept
+    // separate so the companion app can evolve independently.
+    element.IsHitTestVisible(true);
+    RegisterSearchActivationHandlers(element);
+}
+
+void StoreOriginalMarginIfNeeded(FrameworkElement element);
+Thickness GetOriginalOrCurrentMargin(FrameworkElement element);
+void StoreOriginalOpacityIfNeeded(FrameworkElement element);
+double GetOriginalOrCurrentOpacity(FrameworkElement element);
+
+bool IsSearchContentVisualToHide(FrameworkElement element) {
+    if (IsTaskbarSearchButton(element)) {
         return false;
+    }
+
+    auto className = winrt::get_class_name(element);
+    auto name = element.Name();
+
+    if (name == L"BackgroundElement" ||
+        name == L"SearchPillBackgroundElement") {
+        return false;
+    }
+
+    if (name == L"SearchBoxTextBlock" ||
+        name == L"SearchV2OnTaskbarButtonText" ||
+        name == L"DynamicSearchBoxGleamContainer") {
+        return true;
+    }
+
+    if (className == L"Windows.UI.Xaml.Controls.TextBlock" &&
+        HStringContains(name, L"Search")) {
+        return true;
+    }
+
+    if (className == L"Windows.UI.Xaml.Controls.Image" &&
+        (HasAncestorNamed(element, L"DynamicSearchBoxGleamContainer") ||
+         name == L"DynamicSearchBoxGleamImage")) {
+        return true;
     }
 
     return false;
 }
 
-bool ElementOrDescendantHasActiveSearchVisualState(FrameworkElement element) {
-    return ElementHasActiveSearchVisualState(element) ||
-           static_cast<bool>(FindDescendantElement(
-               element, [](FrameworkElement child) {
-                   return ElementHasActiveSearchVisualState(child);
-               }));
+void ApplySearchContentVisibility(FrameworkElement searchElement) {
+    FindDescendantElement(searchElement, [](FrameworkElement child) {
+        if (IsSearchContentVisualToHide(child)) {
+            StoreOriginalOpacityIfNeeded(child);
+            child.Opacity(g_unloading ? GetOriginalOrCurrentOpacity(child)
+                                      : 0);
+        }
+
+        return false;
+    });
 }
-
-bool SearchRepeaterItemNeedsReservedSlot(FrameworkElement element) {
-    if (winrt::get_class_name(element) ==
-        L"Taskbar.SearchBoxLaunchListButton") {
-        return true;
-    }
-
-    if (FindDescendantElement(element, [](FrameworkElement child) {
-            return winrt::get_class_name(child) ==
-                   L"SearchUx.SearchUI.SearchPillButton";
-        })) {
-        return true;
-    }
-
-    return ElementOrDescendantHasActiveSearchVisualState(element);
-}
-
-void StoreOriginalMarginIfNeeded(FrameworkElement element);
-Thickness GetOriginalOrCurrentMargin(FrameworkElement element);
 
 void ApplySearchRepeaterItemMargin(FrameworkElement element,
                                    double widthHint = 0) {
     StoreOriginalMarginIfNeeded(element);
 
     Thickness margin = GetOriginalOrCurrentMargin(element);
-    if (!g_unloading && !g_settings.reserveSearchSlot &&
-        !SearchRepeaterItemNeedsReservedSlot(element)) {
+    if (!g_unloading && !g_settings.reserveSearchSlot) {
         double width = std::max(widthHint, element.ActualWidth());
         if (width > 0) {
             // Don't collapse the repeater item to an exact zero-width slot.
@@ -335,6 +515,27 @@ Thickness GetOriginalOrCurrentMargin(FrameworkElement element) {
     }
 
     return element.Margin();
+}
+
+void StoreOriginalOpacityIfNeeded(FrameworkElement element) {
+    void* key = winrt::get_abi(element);
+    std::lock_guard<std::mutex> lock(g_originalOpacitiesMutex);
+
+    if (g_originalOpacities.find(key) == g_originalOpacities.end()) {
+        g_originalOpacities.emplace(key, element.Opacity());
+    }
+}
+
+double GetOriginalOrCurrentOpacity(FrameworkElement element) {
+    void* key = winrt::get_abi(element);
+    std::lock_guard<std::mutex> lock(g_originalOpacitiesMutex);
+
+    auto it = g_originalOpacities.find(key);
+    if (it != g_originalOpacities.end()) {
+        return it->second;
+    }
+
+    return element.Opacity();
 }
 
 bool ApplyStyle(XamlRoot xamlRoot) {
@@ -390,6 +591,8 @@ bool ApplyStyle(XamlRoot xamlRoot) {
 
     RememberSearchRepeaterItem(searchButton);
     ApplySearchRepeaterItemMargin(searchButton);
+    ApplySearchActivationBehavior(searchButton);
+    ApplySearchContentVisibility(searchButton);
 
     if (!g_unloading && !g_settings.reserveSearchSlot) {
         searchButton.Dispatcher().TryRunAsync(
@@ -680,6 +883,8 @@ HRESULT WINAPI IUIElement_Arrange_Hook(void* pThis,
     }
 
     ApplySearchRepeaterItemMargin(element, rect.Width);
+    ApplySearchActivationBehavior(element);
+    ApplySearchContentVisibility(element);
 
     static bool loggedArrange;
     if (!loggedArrange) {

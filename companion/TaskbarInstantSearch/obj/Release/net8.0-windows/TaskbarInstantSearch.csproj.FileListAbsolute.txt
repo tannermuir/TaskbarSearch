@@ -1,0 +1,14 @@
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\bin\Release\net8.0-windows\TaskbarInstantSearch.exe
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\bin\Release\net8.0-windows\TaskbarInstantSearch.deps.json
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\bin\Release\net8.0-windows\TaskbarInstantSearch.runtimeconfig.json
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\bin\Release\net8.0-windows\TaskbarInstantSearch.dll
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\bin\Release\net8.0-windows\TaskbarInstantSearch.pdb
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\TaskbarInstantSearch.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\TaskbarInstantSearch.AssemblyInfoInputs.cache
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\TaskbarInstantSearch.AssemblyInfo.cs
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\TaskbarInstantSearch.csproj.CoreCompileInputs.cache
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\TaskbarInstantSearch.dll
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\refint\TaskbarInstantSearch.dll
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\TaskbarInstantSearch.pdb
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\TaskbarInstantSearch.genruntimeconfig.cache
+C:\Users\Tanner\projects\Sandbox\companion\TaskbarInstantSearch\obj\Release\net8.0-windows\ref\TaskbarInstantSearch.dll
