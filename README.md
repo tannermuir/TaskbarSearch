@@ -53,13 +53,28 @@ Runtime config lives at:
 
 Use `config.example.json` as the portable starting point. It intentionally avoids private paths and secrets.
 
-For AI prompting, set a user environment variable:
+### AI Setup
+
+AI prompting uses the Cerebras OpenAI-compatible chat completions API by default.
+
+To set it up:
+
+1. Create or sign in to a Cerebras account at https://cloud.cerebras.ai.
+2. Open the API Keys page in the Cerebras Cloud Console and create an API key.
+3. Store the key as a Windows user environment variable:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("CEREBRAS_API_KEY", "your-key", "User")
 ```
 
-Then restart `TaskbarInstantSearch`.
+4. Restart `TaskbarInstantSearch`.
+
+The key is read from the environment at runtime. Do not put real API keys in `config.json`, source files, or Git.
+
+Cerebras references:
+
+- API keys: https://inference-docs.cerebras.ai/console/api-keys
+- Authentication: https://inference-docs.cerebras.ai/api-reference/authentication
 
 ## Build
 
