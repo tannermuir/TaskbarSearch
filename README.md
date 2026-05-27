@@ -1,9 +1,8 @@
 # TaskbarSearch
 
-Windows launcher built from two standalone companion applications, with an optional Windhawk taskbar integration:
+Windows launcher with an optional Windhawk taskbar integration:
 
 - `TaskbarInstantSearch`, a companion launcher overlay with instant string actions, autocomplete, AI prompting, PDF prefix actions, and window commands.
-- `TaskbarCapsLockIndicator`, a standalone Caps Lock/hotbar indicator that mirrors a physical Caps Lock toggle without depending on the launcher process.
 - Optional: a Windhawk mod that visually moves the Windows taskbar Search box to the left and makes clicking it toggle the launcher.
 
 ## Requirements
@@ -20,14 +19,10 @@ From PowerShell:
 .\scripts\install.ps1
 ```
 
-The installer:
-
-- publishes both companion applications as self-contained `win-x64` apps
-- installs them to:
-  - `%APPDATA%\TaskbarInstantSearch`
-  - `%APPDATA%\TaskbarCapsLockIndicator`
-- registers both apps for per-user startup
-- starts both apps
+- publishes the companion application as a self-contained `win-x64` app
+- installs it to `%APPDATA%\TaskbarInstantSearch`
+- registers it for per-user startup
+- starts the app
 - creates `%APPDATA%\TaskbarInstantSearch\config.json` from `config.example.json` if no config exists
 
 After install, open the launcher with the default hotkey:
@@ -75,5 +70,4 @@ dotnet publish TaskbarSearch.sln -c Release -r win-x64 --self-contained true
 ## Notes
 
 - `bin/` and `obj/` are not committed. Build artifacts are generated locally.
-- The Caps Lock indicator is separate from the launcher so it keeps working even when the launcher is closed or restarted.
 - User-specific bindings, app paths, and secrets belong in local AppData config, not in Git.
