@@ -1,0 +1,148 @@
+{
+  "Hotkey": "Alt+Space",
+  "Overlay": {
+    "CloseOnFocusLost": true,
+    "Theme": "system",
+    "LeftPadding": 0,
+    "Width": 360,
+    "Height": 36
+  },
+  "Ai": {
+    "Enabled": true,
+    "Provider": "cerebras",
+    "ApiKeyEnvironmentVariable": "CEREBRAS_API_KEY",
+    "BaseUrl": "https://api.cerebras.ai/v1",
+    "Model": "gpt-oss-120b",
+    "PromptPath": "%APPDATA%\\TaskbarInstantSearch\\ai-prompt.md",
+    "Temperature": 0.1,
+    "MaxOutputTokens": 512,
+    "TimeoutMs": 10000,
+    "ThinkingSuffix": " ...",
+    "RateLimitSuffix": " [rate-limit]",
+    "MissingKeySuffix": " [ai-key]",
+    "ErrorSuffix": " [ai-error]"
+  },
+  "Math": {
+    "Enabled": true,
+    "RenderAiLatexResponses": true,
+    "Notation": "latex",
+    "FallbackToPlainText": true,
+    "MaxRenderWidth": 720,
+    "MaxRenderHeight": 80
+  },
+  "Actions": [
+    {
+      "Trigger": "notepad",
+      "Alias": "not",
+      "Type": "command",
+      "Command": "notepad.exe",
+      "Arguments": [],
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "explorer",
+      "Alias": "exp",
+      "Type": "command",
+      "Command": "explorer.exe",
+      "Arguments": [],
+      "ReuseWindowClasses": ["CabinetWClass", "ExploreWClass"],
+      "ActivateAfterLaunch": true,
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "task manager",
+      "Alias": "tas",
+      "Type": "command",
+      "Command": "C:\\Windows\\System32\\Taskmgr.exe",
+      "Arguments": [],
+      "ReuseExistingWindow": true,
+      "ReuseProcessNames": ["Taskmgr"],
+      "ReuseWindowClasses": [],
+      "ActivateAfterLaunch": true,
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "settings",
+      "Alias": "set",
+      "Type": "command",
+      "Command": "ms-settings:",
+      "Arguments": [],
+      "ReuseProcessNames": ["SystemSettings"],
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "clear",
+      "Alias": "cle",
+      "Type": "showDesktop",
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "pdf",
+      "Alias": "",
+      "Type": "prefixMenu",
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "reload",
+      "Alias": "rel",
+      "Type": "selfRestart",
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "x",
+      "Alias": "",
+      "Type": "minimizeActiveWindow",
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "q",
+      "Alias": "",
+      "Type": "closeActiveWindow",
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "maximize",
+      "Alias": "max",
+      "Type": "maximizeActiveWindow",
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "restart",
+      "Alias": "res",
+      "Type": "command",
+      "Command": "shutdown.exe",
+      "Arguments": ["/r", "/t", "0"],
+      "RequiresConfirmation": true,
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "shut down",
+      "Alias": "shut",
+      "Type": "command",
+      "Command": "shutdown.exe",
+      "Arguments": ["/s", "/t", "0"],
+      "RequiresConfirmation": true,
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    },
+    {
+      "Trigger": "sleep",
+      "Alias": "sle",
+      "Type": "sleepComputer",
+      "RequiresConfirmation": true,
+      "ExactMatchBehavior": "keepOpen",
+      "TabCompletionBehavior": "close"
+    }
+  ]
+}

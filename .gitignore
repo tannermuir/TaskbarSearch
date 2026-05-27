@@ -1,0 +1,19 @@
+# Build outputs
+**/bin/
+**/obj/
+publish/
+
+# User/local config and logs
+config.json
+ai-prompt.md
+*.log
+
+# IDE/user files
+.vs/
+.vscode/
+*.user
+*.suo
+
+# OS files
+Thumbs.db
+Desktop.ini
